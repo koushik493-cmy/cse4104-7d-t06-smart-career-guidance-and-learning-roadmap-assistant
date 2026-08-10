@@ -8,7 +8,10 @@ import {
   Library,
   User,
   Settings,
-  Briefcase
+  Briefcase,
+  KeyRound,
+  History,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuthStore } from "../../store/authStore";
@@ -20,10 +23,13 @@ const navigation = [
   { name: "Skill Gap", href: "/skill-gap", icon: Target },
   { name: "Interview Prep", href: "/interview", icon: MessageSquare },
   { name: "Resources", href: "/resources", icon: Library },
+  { name: "AI History", href: "/history", icon: History },
+  { name: "AI Verification", href: "/ai-verification", icon: Sparkles },
 ];
 
 const bottomNavigation = [
   { name: "Profile", href: "/profile", icon: User },
+  { name: "API Keys", href: "/api-keys", icon: KeyRound },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -32,7 +38,7 @@ export function Sidebar() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <aside className="hidden w-64 flex-col border-r border-border bg-sidebar text-sidebar-foreground sm:flex min-h-screen sticky top-0">
+    <aside className="hidden w-64 flex-col border-r border-border bg-sidebar text-sidebar-foreground sm:flex h-screen overflow-hidden sticky top-0">
       <div className="flex h-16 items-center px-6 border-b border-border/20">
         <Link to="/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight text-sidebar-foreground">
           <div className="h-8 w-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">

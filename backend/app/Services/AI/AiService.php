@@ -3,17 +3,78 @@
 namespace App\Services\AI;
 
 use App\Models\AiHistory;
+use App\Models\UserApiKey;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class AiService
 {
-    protected GeminiService $geminiService;
     protected PromptService $promptService;
 
-    public function __construct(GeminiService $geminiService, PromptService $promptService)
+    public function __construct(PromptService $promptService)
     {
-        $this->geminiService = $geminiService;
         $this->promptService = $promptService;
+    }
+
+    /**
+     * Resolve the authenticated user's active API key record.
+     */
+    protected function getActiveApiKeyRecord(): ?UserApiKey
+    {
+        $userId = Auth::id();
+        if (!$userId) {
+            return null;
+        }
+
+        return UserApiKey::where('user_id', $userId)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Get the appropriate AI Provider service based on the active provider.
+     */
+    protected function getProviderService(?UserApiKey $record): AiProviderInterface
+    {
+        $provider = $record ? $record->provider : 'gemini'; // default to gemini if none set
+
+        return match ($provider) {
+            'openai' => new OpenAIService(),
+            'groq' => new GroqService(),
+            'anthropic' => new AnthropicService(),
+            'zenmux' => new ZenmuxService(),
+            default => new GeminiService(),
+        };
+    }
+
+    /**
+     * Generate content dynamically using the active provider with automatic retry strategy.
+     */
+    protected function executeProvider(string $prompt, string $feature): ?array
+    {
+        $record = $this->getActiveApiKeyRecord();
+        $providerService = $this->getProviderService($record);
+        $userApiKey = $record ? $record->api_key : null;
+
+        $startTime = microtime(true);
+        $response = null;
+
+        try {
+            $response = $providerService->generateContent($prompt, $userApiKey);
+        } catch (\Exception $e) {
+            Log::warning("AI Service attempt 1 failed ({$feature}): {$e->getMessage()}. Retrying once...");
+            try {
+                $response = $providerService->generateContent($prompt, $userApiKey);
+            } catch (\Exception $e2) {
+                Log::error("AI Service retry failed ({$feature}): {$e2->getMessage()}");
+                throw $e2;
+            }
+        }
+
+        $executionTime = microtime(true) - $startTime;
+        $this->logHistory($feature, $prompt, $response, $executionTime);
+
+        return $response;
     }
 
     /**
@@ -22,14 +83,7 @@ class AiService
     public function getCareerRecommendation(array $userData): ?array
     {
         $prompt = $this->promptService->buildCareerRecommendationPrompt($userData);
-        $startTime = microtime(true);
-        
-        $response = $this->geminiService->generateContent($prompt);
-        
-        $executionTime = microtime(true) - $startTime;
-        $this->logHistory('career_recommendation', $prompt, $response, $executionTime);
-
-        return $response;
+        return $this->executeProvider($prompt, 'career_recommendation');
     }
 
     /**
@@ -38,14 +92,7 @@ class AiService
     public function getSkillGapAnalysis(string $careerTitle, array $currentSkills): ?array
     {
         $prompt = $this->promptService->buildSkillGapPrompt($careerTitle, $currentSkills);
-        $startTime = microtime(true);
-        
-        $response = $this->geminiService->generateContent($prompt);
-        
-        $executionTime = microtime(true) - $startTime;
-        $this->logHistory('skill_gap_analysis', $prompt, $response, $executionTime);
-
-        return $response;
+        return $this->executeProvider($prompt, 'skill_gap_analysis');
     }
 
     /**
@@ -54,14 +101,7 @@ class AiService
     public function generateRoadmap(string $careerTitle, array $missingSkills): ?array
     {
         $prompt = $this->promptService->buildRoadmapPrompt($careerTitle, $missingSkills);
-        $startTime = microtime(true);
-        
-        $response = $this->geminiService->generateContent($prompt);
-        
-        $executionTime = microtime(true) - $startTime;
-        $this->logHistory('learning_roadmap', $prompt, $response, $executionTime);
-
-        return $response;
+        return $this->executeProvider($prompt, 'learning_roadmap');
     }
 
     /**
@@ -70,14 +110,7 @@ class AiService
     public function generateInterviewPrep(string $careerTitle, string $difficulty): ?array
     {
         $prompt = $this->promptService->buildInterviewPrompt($careerTitle, $difficulty);
-        $startTime = microtime(true);
-        
-        $response = $this->geminiService->generateContent($prompt);
-        
-        $executionTime = microtime(true) - $startTime;
-        $this->logHistory('interview_prep', $prompt, $response, $executionTime);
-
-        return $response;
+        return $this->executeProvider($prompt, 'interview_prep');
     }
 
     /**
@@ -86,14 +119,7 @@ class AiService
     public function generateResources(string $careerTitle): ?array
     {
         $prompt = $this->promptService->buildResourcePrompt($careerTitle);
-        $startTime = microtime(true);
-        
-        $response = $this->geminiService->generateContent($prompt);
-        
-        $executionTime = microtime(true) - $startTime;
-        $this->logHistory('resource_recommendation', $prompt, $response, $executionTime);
-
-        return $response;
+        return $this->executeProvider($prompt, 'resource_recommendation');
     }
 
     /**
@@ -102,13 +128,13 @@ class AiService
     protected function logHistory(string $feature, string $prompt, ?array $response, float $executionTime): void
     {
         $userId = Auth::id();
-        
+
         if ($userId) {
             AiHistory::create([
-                'user_id' => $userId,
-                'feature' => $feature,
-                'prompt' => $prompt,
-                'response' => $response,
+                'user_id'        => $userId,
+                'feature'        => $feature,
+                'prompt'         => $prompt,
+                'response'       => $response,
                 'execution_time' => $executionTime,
             ]);
         }
