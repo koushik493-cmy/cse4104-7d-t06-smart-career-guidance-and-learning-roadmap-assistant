@@ -10,17 +10,28 @@ class ProgressService
 {
     public function getProgress(int $userId)
     {
-        $roadmaps = LearningRoadmap::where('user_id', $userId)->with('steps')->get();
+        $roadmaps = LearningRoadmap::where('user_id', $userId)
+            ->with('steps')
+            ->orderBy('created_at', 'desc')
+            ->get();
         
         $progress = [];
         foreach ($roadmaps as $roadmap) {
             $totalSteps = $roadmap->steps->count();
-            $completedSteps = DB::table('completed_steps')
+            $completedStepIds = DB::table('completed_steps')
                 ->where('user_id', $userId)
                 ->whereIn('roadmap_step_id', $roadmap->steps->pluck('id'))
-                ->count();
+                ->pluck('roadmap_step_id')
+                ->toArray();
+
+            $completedSteps = count($completedStepIds);
                 
             $percentage = $totalSteps > 0 ? round(($completedSteps / $totalSteps) * 100) : 0;
+            
+            $steps = $roadmap->steps->map(function ($step) use ($completedStepIds) {
+                $step->completion_status = in_array($step->id, $completedStepIds) ? 'completed' : 'pending';
+                return $step;
+            });
             
             $progress[] = [
                 'roadmap_id' => $roadmap->id,
@@ -28,7 +39,7 @@ class ProgressService
                 'total_steps' => $totalSteps,
                 'completed_steps' => $completedSteps,
                 'percentage' => $percentage,
-                'steps' => $roadmap->steps
+                'steps' => $steps
             ];
         }
         

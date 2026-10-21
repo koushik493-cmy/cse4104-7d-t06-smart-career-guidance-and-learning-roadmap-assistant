@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: aria-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    plan: free
+    region: singapore # or oregon, frankfurt, ohio
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: aria
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: PULSE_ENABLED
+        value: "false"
+      - key: TELESCOPE_ENABLED
+        value: "false"
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        value: postgres
+      - key: DB_SSLMODE
+        value: require
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: SEED_DATABASE
+        value: "true"
+      # Sync these secrets in Render Dashboard:
+      # - key: APP_KEY
+      # - key: APP_URL
+      # - key: DB_HOST
+      # - key: DB_USERNAME
+      # - key: DB_PASSWORD
+      # - key: GEMINI_API_KEY

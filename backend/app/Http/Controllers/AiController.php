@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\AI\AiService;
 use App\Models\LearningRoadmap;
+use App\Models\RoadmapStep;
+use App\Models\Career;
 use App\Models\UserSkill;
 use App\Models\CareerRecommendation;
 use Illuminate\Http\JsonResponse;
@@ -109,42 +111,47 @@ class AiController extends Controller
     /**
      * POST /roadmaps/generate or /ai/generate-roadmap
      */
-    public function generateRoadmap(Request $request): JsonResponse
-    {
-        $userId = Auth::id();
+     public function generateRoadmap(Request $request): JsonResponse
+     {
+         $userId = Auth::id() ?? 1;
 
-        $careerTitle = $request->input('career_title') ?? $request->input('target_role') ?? 'Software Engineer';
-        $rawMissing = $request->input('missing_skills') ?? $request->input('skills') ?? ['Advanced Backend Architecture', 'System Design'];
+         $careerTitle = $request->input('career_title') ?? $request->input('target_role') ?? 'Software Engineer';
+         $rawMissing = $request->input('missing_skills') ?? $request->input('skills') ?? ['Advanced Backend Architecture', 'System Design'];
 
-        if (is_string($rawMissing)) {
-            $missingSkills = array_filter(array_map('trim', explode(',', $rawMissing)));
-        } else {
-            $missingSkills = (array) $rawMissing;
-        }
+         if (is_string($rawMissing)) {
+             $missingSkills = array_filter(array_map('trim', explode(',', $rawMissing)));
+         } else {
+             $missingSkills = (array) $rawMissing;
+         }
 
-        try {
-            $response = $this->aiService->generateRoadmap($careerTitle, $missingSkills);
-            if (!$response) {
-                throw new Exception('Failed to generate roadmap from AI service.');
-            }
-            return response()->json([
-                'success' => true,
-                'data'    => $response,
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
+         try {
+             $response = $this->aiService->generateRoadmap($careerTitle, $missingSkills);
+             if (!$response) {
+                 throw new Exception('Failed to generate roadmap from AI service.');
+             }
+
+             // Persist roadmap and steps to database so they appear in Progress & Roadmap views
+             $roadmap = $this->persistRoadmap($userId, $careerTitle, $response);
+
+             return response()->json([
+                 'success' => true,
+                 'data'    => $response,
+                 'roadmap' => $roadmap->load('steps'),
+             ]);
+         } catch (Exception $e) {
+             return response()->json([
+                 'success' => false,
+                 'message' => $e->getMessage(),
+             ], 500);
+         }
+     }
 
     /**
      * POST /roadmaps/{id}/regenerate
      */
     public function regenerateRoadmap(Request $request, $id): JsonResponse
     {
-        $userId = Auth::id();
+        $userId = Auth::id() ?? 1;
         $roadmap = LearningRoadmap::where('user_id', $userId)->find($id);
 
         $careerTitle = $roadmap ? $roadmap->title : 'Software Engineer';
@@ -158,14 +165,41 @@ class AiController extends Controller
 
             if ($roadmap) {
                 $roadmap->update([
-                    'ai_response' => $response,
-                    'version'     => $roadmap->version + 1,
+                    'ai_response'        => $response,
+                    'estimated_duration' => $response['estimated_duration'] ?? $roadmap->estimated_duration,
+                    'version'            => $roadmap->version + 1,
                 ]);
+
+                // Replace steps with the regenerated phases
+                $roadmap->steps()->delete();
+                $items = $response['phases'] ?? $response['steps'] ?? [];
+                if (!empty($items) && is_array($items)) {
+                    $seq = 1;
+                    foreach ($items as $item) {
+                        $title = $item['title'] ?? $item['phase_name'] ?? $item['name'] ?? ("Phase " . $seq);
+                        $description = $item['description'] ?? '';
+                        if (!empty($item['skills_covered']) && is_array($item['skills_covered'])) {
+                            $skillsStr = implode(', ', $item['skills_covered']);
+                            $description = $description ? ($description . " | Skills: " . $skillsStr) : ("Skills: " . $skillsStr);
+                        }
+                        $hours = isset($item['estimated_hours']) ? intval($item['estimated_hours']) : 20;
+
+                        RoadmapStep::create([
+                            'roadmap_id'        => $roadmap->id,
+                            'title'             => $title,
+                            'description'       => $description,
+                            'sequence'          => $seq++,
+                            'estimated_hours'   => $hours,
+                            'completion_status' => 'pending',
+                        ]);
+                    }
+                }
             }
 
             return response()->json([
                 'success' => true,
                 'data'    => $response,
+                'roadmap' => $roadmap ? $roadmap->fresh('steps') : null,
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -173,6 +207,63 @@ class AiController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Helper to persist an AI-generated roadmap and its steps.
+     */
+    protected function persistRoadmap(int $userId, string $careerTitle, array $response): LearningRoadmap
+    {
+        $career = Career::where('title', 'like', "%{$careerTitle}%")
+            ->orWhere('target_role', 'like', "%{$careerTitle}%")
+            ->first();
+
+        if (!$career) {
+            $career = Career::firstOrCreate(
+                ['title' => $careerTitle],
+                [
+                    'target_role'      => $careerTitle,
+                    'description'      => "Career path for {$careerTitle}",
+                    'difficulty'       => 'Intermediate',
+                    'average_duration' => $response['estimated_duration'] ?? '3 months',
+                ]
+            );
+        }
+
+        $roadmap = LearningRoadmap::create([
+            'user_id'            => $userId,
+            'career_id'          => $career->id,
+            'title'              => $response['title'] ?? ("Roadmap to " . $careerTitle),
+            'estimated_duration' => $response['estimated_duration'] ?? '3 months',
+            'ai_response'        => $response,
+            'status'             => 'active',
+            'version'            => 1,
+        ]);
+
+        $items = $response['phases'] ?? $response['steps'] ?? [];
+        if (!empty($items) && is_array($items)) {
+            $seq = 1;
+            foreach ($items as $item) {
+                $title = $item['title'] ?? $item['phase_name'] ?? $item['name'] ?? ("Phase " . $seq);
+                $description = $item['description'] ?? '';
+                if (!empty($item['skills_covered']) && is_array($item['skills_covered'])) {
+                    $skillsStr = implode(', ', $item['skills_covered']);
+                    $description = $description ? ($description . " | Skills: " . $skillsStr) : ("Skills: " . $skillsStr);
+                }
+                $hours = isset($item['estimated_hours']) ? intval($item['estimated_hours']) : 20;
+
+                RoadmapStep::create([
+                    'roadmap_id'        => $roadmap->id,
+                    'title'             => $title,
+                    'description'       => $description,
+                    'sequence'          => $seq++,
+                    'estimated_hours'   => $hours,
+                    'completion_status' => 'pending',
+                ]);
+            }
+        }
+
+        return $roadmap;
     }
 
     /**

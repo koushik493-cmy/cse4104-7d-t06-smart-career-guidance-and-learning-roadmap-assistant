@@ -42,16 +42,17 @@ export default function Roadmap() {
   const fetchProgress = async () => {
     try {
       const response = await api.get("/progress");
-      setProgressData(response.data.data);
+      setProgressData(response.data.data || []);
     } catch (error) {
       console.error("Failed to fetch progress", error);
+      setProgressData([]);
     }
   };
 
   const handleCompleteStep = async (stepId: number) => {
     try {
       const response = await api.post("/progress/complete-step", { step_id: stepId });
-      setProgressData(response.data.data);
+      setProgressData(response.data.data || []);
       toast.success("Step completed!");
     } catch (error) {
       toast.error("Failed to complete step.");
@@ -84,7 +85,7 @@ export default function Roadmap() {
 
       await api.post("/ai/generate-roadmap", payload);
       toast.success("Roadmap generated successfully!");
-      fetchProgress();
+      await fetchProgress();
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to generate roadmap");
     } finally {
@@ -154,6 +155,16 @@ export default function Roadmap() {
       </AnimatePresence>
 
       <div className="space-y-6 pt-4">
+        {!loading && progressData.length === 0 && (
+          <Card className="p-8 text-center border-dashed border-border/80 bg-card/50">
+            <Map className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-60" />
+            <h3 className="text-lg font-medium text-foreground">No Roadmaps Yet</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+              Choose your target career above and click &quot;Generate New AI Roadmap&quot; to build your step-by-step learning path.
+            </p>
+          </Card>
+        )}
+
         <AnimatePresence>
           {progressData.map((progress, idx) => (
             <motion.div

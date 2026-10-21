@@ -6,8 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    outDir: '../backend/public',
-    emptyOutDir: false, // Don't wipe index.php or .htaccess
+    outDir: process.env.BUILD_TO_LARAVEL ? '../backend/public' : 'dist',
+    emptyOutDir: process.env.BUILD_TO_LARAVEL ? false : true,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

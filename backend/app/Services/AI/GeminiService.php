@@ -10,11 +10,12 @@ class GeminiService implements AiProviderInterface
 {
     protected string $apiKey;
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/';
-    protected string $model = 'gemini-2.5-flash';
+    protected string $model = 'gemini-3.8-flash';
 
     public function __construct()
     {
         $this->apiKey = env('GEMINI_API_KEY', '');
+        $this->model = env('GEMINI_MODEL', 'gemini-3.8-flash');
     }
 
     /**
@@ -33,7 +34,8 @@ class GeminiService implements AiProviderInterface
             throw new Exception('AI service is currently unavailable. Please add your Gemini API key in the API Keys settings page.');
         }
 
-        $url = "{$this->baseUrl}{$this->model}:generateContent?key={$key}";
+        $modelName = preg_replace('#^models/#', '', $this->model);
+        $url = "{$this->baseUrl}{$modelName}:generateContent?key={$key}";
 
         $payload = [
             'contents' => [
