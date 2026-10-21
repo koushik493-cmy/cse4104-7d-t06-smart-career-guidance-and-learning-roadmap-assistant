@@ -1,0 +1,21 @@
+{
+  "name": "Aria — AI-Powered Career Guidance",
+  "short_name": "Aria",
+  "description": "AI-Powered Career Guidance & Learning Roadmap Assistant",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080B14",
+  "theme_color": "#863BFF",
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
