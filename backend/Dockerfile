@@ -1,4 +1,4 @@
-FROM php:8.3-apache
+FROM php:8.4-apache
 
 # Set build and runtime environment
 ENV DEBIAN_FRONTEND=noninteractive
