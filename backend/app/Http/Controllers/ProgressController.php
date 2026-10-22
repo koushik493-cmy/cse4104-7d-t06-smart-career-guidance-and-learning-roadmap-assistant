@@ -28,6 +28,17 @@ class ProgressController extends Controller
         $userId = Auth::id() ?? 1;
         $progress = $this->progressService->completeStep($userId, $request->step_id);
         
+        try {
+            \App\Models\Notification::create([
+                'user_id' => $userId,
+                'title'   => 'Milestone Completed!',
+                'message' => 'Great job! You made progress on your career learning roadmap.',
+                'status'  => 'unread',
+            ]);
+        } catch (\Exception $e) {
+            // Silently continue
+        }
+
         return response()->json([
             'message' => 'Step completed successfully.',
             'data' => $progress

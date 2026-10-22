@@ -263,6 +263,18 @@ class AiController extends Controller
             }
         }
 
+        // Send alert notification to the user
+        try {
+            \App\Models\Notification::create([
+                'user_id' => $userId,
+                'title'   => 'New Roadmap Generated',
+                'message' => "Your roadmap for '{$careerTitle}' is ready! Track each milestone in your dashboard.",
+                'status'  => 'unread',
+            ]);
+        } catch (\Exception $e) {
+            // Silently continue
+        }
+
         return $roadmap;
     }
 

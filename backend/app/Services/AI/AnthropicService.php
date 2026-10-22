@@ -15,6 +15,7 @@ class AnthropicService implements AiProviderInterface
     public function __construct()
     {
         $this->apiKey = env('ANTHROPIC_API_KEY', '');
+        $this->model = env('ANTHROPIC_MODEL', 'claude-3-5-sonnet-20240620');
     }
 
     public function generateContent(string $prompt, ?string $userApiKey = null): ?array

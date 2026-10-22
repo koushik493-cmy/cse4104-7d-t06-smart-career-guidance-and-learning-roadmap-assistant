@@ -25,6 +25,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     
     // Core Resource Models
+    Route::get('/profiles/me', [UserProfileController::class, 'show']);
+    Route::put('/profiles/me', [UserProfileController::class, 'update']);
     Route::apiResource('profiles', UserProfileController::class);
     Route::apiResource('careers', CareerController::class);
     Route::apiResource('skills', SkillController::class);
@@ -40,7 +42,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/progress/complete-step', [\App\Http\Controllers\ProgressController::class, 'completeStep']);
     
     Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+    Route::put('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead']);
     Route::put('/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{id}', [\App\Http\Controllers\NotificationController::class, 'destroy']);
 
     // Direct Base AI Endpoints
     Route::post('/ai/recommend-career', [AiController::class, 'recommendCareer']);

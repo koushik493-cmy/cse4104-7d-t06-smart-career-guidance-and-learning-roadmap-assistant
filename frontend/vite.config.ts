@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     outDir: process.env.BUILD_TO_LARAVEL ? '../backend/public' : 'dist',
-    emptyOutDir: process.env.BUILD_TO_LARAVEL ? false : true,
+    emptyOutDir: false,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

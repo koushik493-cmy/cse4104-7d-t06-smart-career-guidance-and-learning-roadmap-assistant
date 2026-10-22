@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Menu, LogOut, User, Bell, Settings } from "lucide-react";
+import { Menu, LogOut, User, Settings } from "lucide-react";
 import ThemeToggle from "../ThemeToggle";
+import NotificationPanel from "../NotificationPanel";
 import { useAuthStore } from "../../store/authStore";
 import api from "../../services/api";
 
@@ -36,10 +37,7 @@ export function TopNav() {
       <div className="flex items-center gap-3">
         <ThemeToggle />
         
-        <button className="relative p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors" aria-label="Notifications">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive"></span>
-        </button>
+        <NotificationPanel />
 
         <div className="relative">
         <button 

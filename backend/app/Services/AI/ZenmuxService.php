@@ -15,6 +15,7 @@ class ZenmuxService implements AiProviderInterface
     public function __construct()
     {
         $this->apiKey = env('ZENMUX_API_KEY', '');
+        $this->model = env('ZENMUX_MODEL', 'gpt-4o-mini');
     }
 
     public function generateContent(string $prompt, ?string $userApiKey = null): ?array

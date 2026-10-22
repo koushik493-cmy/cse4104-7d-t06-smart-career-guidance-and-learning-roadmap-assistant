@@ -15,6 +15,7 @@ class OpenAIService implements AiProviderInterface
     public function __construct()
     {
         $this->apiKey = env('OPENAI_API_KEY', '');
+        $this->model = env('OPENAI_MODEL', 'gpt-4o-mini');
     }
 
     public function generateContent(string $prompt, ?string $userApiKey = null): ?array
